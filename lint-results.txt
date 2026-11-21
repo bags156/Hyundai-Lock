@@ -1,0 +1,122 @@
+/home/runner/work/Hyundai-Lock/Hyundai-Lock/app/src/main/java/io/github/bags156/hyundailock/AppSettings.java:243: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+        prefs.edit().putLong(PENDING_DUE_AT, dueAt).putString(PENDING_ALERT, alert).commit();
+                                                                                    ~~~~~~~~
+/home/runner/work/Hyundai-Lock/Hyundai-Lock/app/src/main/java/io/github/bags156/hyundailock/AppSettings.java:247: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+        prefs.edit().remove(PENDING_DUE_AT).remove(PENDING_ALERT).commit();
+                                                                  ~~~~~~~~
+/home/runner/work/Hyundai-Lock/Hyundai-Lock/app/src/main/java/io/github/bags156/hyundailock/AppSettings.java:274: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+        prefs.edit().putString(SCHEDULES, Schedule.toJson(list)).commit();
+                                                                 ~~~~~~~~
+/home/runner/work/Hyundai-Lock/Hyundai-Lock/app/src/main/java/io/github/bags156/hyundailock/AppSettings.java:284: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+        prefs.edit().putString(SCHEDULES, Schedule.toJson(list)).commit();
+                                                                 ~~~~~~~~
+/home/runner/work/Hyundai-Lock/Hyundai-Lock/app/src/main/java/io/github/bags156/hyundailock/AppSettings.java:289: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+        prefs.edit().putLong(NEXT_SCHEDULE_ID, id + 1).commit();
+                                                       ~~~~~~~~
+
+   Explanation for issues of type "ApplySharedPref":
+   Consider using apply() instead of commit on shared preferences. Whereas
+   commit blocks and writes its data to persistent storage immediately, apply
+   will handle it in the background.
+
+/home/runner/work/Hyundai-Lock/Hyundai-Lock/app/build.gradle.kts:23: Warning: Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the android.os.Build.VERSION_CODES javadoc for details. [OldTargetApi]
+        targetSdk = 36
+        ~~~~~~~~~~~~~~
+
+   Explanation for issues of type "OldTargetApi":
+   When your application or sdk runs on a version of Android that is more
+   recent than your targetSdkVersion specifies that it has been tested with,
+   various compatibility modes kick in. This ensures that your application
+   continues to work, but it may look out of place. For example, if the
+   targetSdkVersion is less than 14, your app may get an option button in the
+   UI.
+
+   To fix this issue, set the targetSdkVersion to the highest available value.
+   Then test your app to make sure everything works correctly. You may want to
+   consult the compatibility notes to see what changes apply to each version
+   you are adding support for:
+   https://developer.android.com/reference/android/os/Build.VERSION_CODES.html
+   as well as follow this guide:
+   https://developer.android.com/distribute/best-practices/develop/target-sdk.
+   html
+
+   https://developer.android.com/distribute/best-practices/develop/target-sdk.html
+
+/home/runner/work/Hyundai-Lock/Hyundai-Lock/gradle/wrapper/gradle-wrapper.properties:3: Warning: A newer version of Gradle than 8.14.3 is available: 8.14.8 [AndroidGradlePluginVersion]
+distributionUrl=https\://services.gradle.org/distributions/gradle-8.14.3-bin.zip
+                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "AndroidGradlePluginVersion":
+   This detector looks for usage of the Android Gradle Plugin where the
+   version you are using is not the current stable release. Using older
+   versions is fine, and there are cases where you deliberately want to stick
+   with an older version. However, you may simply not be aware that a more
+   recent version is available, and that is what this lint check helps find.
+
+/home/runner/work/Hyundai-Lock/Hyundai-Lock/app/build.gradle.kts:69: Warning: A newer version of org.json:json than 20240303 is available: 20260814 [NewerVersionAvailable]
+    testImplementation("org.json:json:20240303")
+                       ~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "NewerVersionAvailable":
+   This detector checks with a central repository to see if there are newer
+   versions available for the dependencies used by this project. This is
+   similar to the GradleDependency check, which checks for newer versions
+   available in the Android SDK tools and libraries, but this works with any
+   MavenCentral dependency, and connects to the library every time, which
+   makes it more flexible but also much slower.
+
+/home/runner/work/Hyundai-Lock/Hyundai-Lock/app/src/main/java/io/github/bags156/hyundailock/MainActivity.java:236: Warning: Use @RequiresApi(Build.VERSION_CODES.R) instead of @TargetApi` to propagate the requirement to callers of setBarAppearance [UseRequiresApi]
+    @TargetApi(Build.VERSION_CODES.R)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/Hyundai-Lock/Hyundai-Lock/app/src/main/java/io/github/bags156/hyundailock/MainActivity.java:1225: Warning: Use @RequiresApi(Build.VERSION_CODES.S) instead of @TargetApi` to propagate the requirement to callers of openExactAlarmSettings [UseRequiresApi]
+    @TargetApi(Build.VERSION_CODES.S)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/Hyundai-Lock/Hyundai-Lock/app/src/main/java/io/github/bags156/hyundailock/MainActivity.java:1404: Warning: Use @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM) instead of @TargetApi` to propagate the requirement to callers of padForSystemBars [UseRequiresApi]
+    @TargetApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/Hyundai-Lock/Hyundai-Lock/app/src/main/java/io/github/bags156/hyundailock/Ui.java:94: Warning: Use @RequiresApi(Build.VERSION_CODES.S) instead of @TargetApi` to propagate the requirement to callers of dynamicColors [UseRequiresApi]
+    @TargetApi(Build.VERSION_CODES.S)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UseRequiresApi":
+   The @TargetApi annotation only suppresses API warnings locally.
+   @RequiresApi on the other hand will propagate the requirement out to any
+   callers of this API, making sure that they either perform API level checks
+   (using for example SDK_INT), or defining @RequiresApi annotations
+   themselves.
+
+   (The @TargetApi annotation predates @RequiresApi, and was introduced as an
+   early way to suppress lint API warnings for a particular API level.
+   Accidentally using @TargetApi can lead to crashes since there is no check
+   that other calls to this method actually check that the call is safe.)
+
+/home/runner/work/Hyundai-Lock/Hyundai-Lock/app/src/main/res/mipmap-anydpi-v26: Warning: This folder configuration (v26) is unnecessary; minSdkVersion is 26. Merge all the resources in this folder into mipmap-anydpi. [ObsoleteSdkInt]
+
+   Explanation for issues of type "ObsoleteSdkInt":
+   This check flags version checks that are not necessary, because the
+   minSdkVersion (or surrounding known API level) is already at least as high
+   as the version checked for.
+
+   Similarly, it also looks for resources in -vNN folders, such as values-v14
+   where the version qualifier is less than or equal to the minSdkVersion,
+   where the contents should be merged into the best folder.
+
+/home/runner/work/Hyundai-Lock/Hyundai-Lock/app/src/main/java/io/github/bags156/hyundailock/CarControl.java:80: Warning: Do not place Android context classes in static fields (static reference to CarControl which has field app pointing to Context); this is a memory leak [StaticFieldLeak]
+    private static CarControl instance;
+            ~~~~~~
+
+   Explanation for issues of type "StaticFieldLeak":
+   A static field will leak contexts.
+
+   Non-static inner classes have an implicit reference to their outer class.
+   If that outer class is for example a Fragment or Activity, then this
+   reference means that the long-running handler/loader/task will hold a
+   reference to the activity which prevents it from getting garbage
+   collected.
+
+   Similarly, direct field references to activities and fragments from these
+   longer running instances can cause leaks.
+
+   ViewModel classes should never point to Views or non-application Contexts.
+
+0 errors, 14 warnings
