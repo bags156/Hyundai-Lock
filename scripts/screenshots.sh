@@ -72,7 +72,7 @@ for mode in light dark; do
     sleep 3
     scroll_down
     sleep 1
-    tap_text "7:30"
+    tap_text "  ·  Weekdays"
     shoot "$mode-6-schedule-editor" 3
     adb shell input keyevent KEYCODE_BACK
     sleep 1
