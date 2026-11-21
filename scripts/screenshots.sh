@@ -22,6 +22,15 @@ scroll_down() {
   adb shell input swipe 540 1900 540 800 700
 }
 
+# The emulator's own launcher sometimes shows "isn't responding"; wait it out.
+dismiss_system_dialogs() {
+  adb shell uiautomator dump /sdcard/ui.xml > /dev/null 2>&1 || return 0
+  if adb shell cat /sdcard/ui.xml | grep -q "isn't responding"; then
+    tap_text "Wait"
+    sleep 2
+  fi
+}
+
 launch() {
   adb shell am force-stop "$PKG"
   adb shell am start -W -n "$PKG/.MainActivity" "$@" > /dev/null
@@ -70,10 +79,13 @@ for mode in light dark; do
   if [ "$mode" = dark ]; then
     launch --es demo normal
     sleep 3
+    dismiss_system_dialogs
     scroll_down
     sleep 1
     tap_text "  ·  Weekdays"
-    shoot "$mode-6-schedule-editor" 3
+    sleep 2
+    dismiss_system_dialogs
+    shoot "$mode-6-schedule-editor" 2
     adb shell input keyevent KEYCODE_BACK
     sleep 1
     tap_text "+ Hot afternoon"

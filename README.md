@@ -1,8 +1,8 @@
 # Hyundai Lock
 
-An unofficial Android remote for **Hyundai Bluelink (US)**. It can lock, unlock, show status and start climate control, and it can **lock the car automatically when the MyHyundai app posts an "unlocked" alert**. It uses no libraries, analytics or trackers. Android 8.0+ (API 26); targets Android 16 (API 36).
+An unofficial Android remote for **Hyundai Bluelink (US)**. It can lock, unlock, show status and start climate control. It can also **lock the car automatically when the MyHyundai app posts an "unlocked" alert**, and **start the climate on a schedule depending on the outside temperature**. It uses no libraries, analytics or trackers. Android 8.0+ (API 26); targets Android 16 (API 36).
 
-**Status: first version, not yet tested against a real car or account.** It sends the same requests as the open-source [hyundai_kia_connect_api](https://github.com/Hyundai-Kia-Connect/hyundai_kia_connect_api) project, which works today. Hyundai can change that interface at any time. Not affiliated with Hyundai.
+**Status:** sign-in, status and the screen work against a real 2022 Tucson. Lock and unlock confirmations, climate, auto-lock and schedules still need a live test. It sends the same requests as the open-source [hyundai_kia_connect_api](https://github.com/Hyundai-Kia-Connect/hyundai_kia_connect_api) project, which works today. Hyundai can change that interface at any time. Not affiliated with Hyundai.
 
 ## What it does
 
@@ -10,7 +10,20 @@ An unofficial Android remote for **Hyundai Bluelink (US)**. It can lock, unlock,
 - **Status** shows whether the car is locked, whether the engine and climate are on, and whether a door, the trunk or the hood is open. **Refresh** reads Hyundai's last saved copy. **Wake car** asks the car itself, which is slower and limited by Hyundai.
 - **Remote start / climate**: 62–82 °F, 1–10 minutes, front defrost and heated features. Uses the right endpoint for gas and hybrid cars or EVs.
 - **"Lock car" Quick Settings tile** for one-tap locking from the notification shade. There's deliberately no unlock tile.
-- **Auto-lock** (below).
+- **Schedules** and **Auto-lock** (below).
+
+## Schedules
+
+A schedule starts the car's climate at a time of day on chosen days. It can run at any temperature, or only when it's **colder than** or **warmer than** a threshold. For example:
+
+- **Cold morning** preset: weekdays at 7:30 AM, if it's below 35°F, warm to 74°F with front defrost and heated features for 10 minutes.
+- **Hot afternoon** preset: weekdays at 4:45 PM, if it's above 85°F, cool to 64°F for 10 minutes.
+
+Both presets can be edited, and you can add custom schedules. The outside temperature comes from [Open-Meteo](https://open-meteo.com), which is free and needs no account or API key. You set a ZIP code or city once. The app sends Open-Meteo only that place's coordinates and never uses your phone's location.
+
+Every run sends a notification. A start looks like "Warm-up at 7:30 AM: climate started, 28°F outside". A skip, on a quieter channel, looks like "52°F outside, not below 35°F". If the weather can't be fetched, a temperature-based schedule doesn't start the car.
+
+Schedules use exact alarms, so they fire on the minute. They're re-armed after a reboot, an app update, or a clock or time-zone change. Hyundai only remote-starts a car that's off and locked with the hood closed, for at most 10 minutes.
 
 ## Auto-lock
 
@@ -54,7 +67,7 @@ To publish a release, change `version.txt` (e.g. `0.1.1`) and push to `main`. `.
 
 - Your MyHyundai email is stored in the app's private storage. Your password and PIN are encrypted there with an AES key held in the Android keystore. The access token is kept in memory only.
 - Backups and device-to-device transfer are disabled for the app's data. Signing out deletes the login and the key.
-- The only network destination is `api.telematics.hyundaiusa.com`.
+- The only network destinations are `api.telematics.hyundaiusa.com` (Hyundai), and `api.open-meteo.com` / `geocoding-api.open-meteo.com` for schedule temperatures and the location search.
 
 ## Build
 
@@ -62,4 +75,6 @@ To publish a release, change `version.txt` (e.g. `0.1.1`) and push to `main`. `.
 ./gradlew testDebugUnitTest lintDebug assembleDebug
 ```
 
-Pure logic (alert matching, auto-lock decisions, request bodies and response parsing) lives in `app/src/main/java/.../core` and is covered by unit tests in `app/src/test`.
+`.github/workflows/screenshots.yml` runs on every branch except `main`. It boots an emulator, opens the debug build with sample data (debug builds only), and pushes light and dark screenshots plus the lint report to the `ci-screenshots` branch.
+
+Pure logic (alert matching, auto-lock decisions, schedules, request bodies and response parsing) lives in `app/src/main/java/.../core` and is covered by unit tests in `app/src/test`.
