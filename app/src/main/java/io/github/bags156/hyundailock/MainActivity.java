@@ -682,7 +682,7 @@ public final class MainActivity extends Activity implements CarControl.Listener 
                 + "at any time. Your login stays on this phone, encrypted with the Android keystore, "
                 + "and is sent only to Hyundai.");
         footer.setPadding(ui.dp(8), ui.dp(20), ui.dp(8), 0);
-        page.addView(footer);
+        content.addView(footer);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
             padForSystemBars(scroll);
@@ -726,8 +726,9 @@ public final class MainActivity extends Activity implements CarControl.Listener 
         box.addView(welcomeStatus);
 
         TextView privacy = ui.text(13, Ui.alpha(ui.textSecondary, 0.85f));
-        privacy.setText("Stored only on this phone, encrypted with the Android keystore. Sent only "
-                + "to Hyundai's Bluelink server.");
+        privacy.setText("Your login is stored only on this phone, encrypted with the Android "
+                + "keystore, and sent only to Hyundai's Bluelink server. This is an unofficial app, "
+                + "not made or supported by Hyundai.");
         privacy.setGravity(Gravity.CENTER);
         privacy.setPadding(0, ui.dp(16), 0, 0);
         box.addView(privacy);

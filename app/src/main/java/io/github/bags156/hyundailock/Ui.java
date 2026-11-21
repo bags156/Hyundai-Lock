@@ -331,6 +331,8 @@ final class Ui {
         field.setHint(hint);
         field.setInputType(inputType);
         field.setSingleLine(true);
+        // Password input types switch to monospace; keep the regular font.
+        field.setTypeface(Typeface.DEFAULT);
         field.setTextColor(text);
         field.setHintTextColor(alpha(textSecondary, 0.8f));
         field.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);

@@ -99,9 +99,9 @@ public class ScheduleTest {
         Schedule cold = Schedule.coldMorning(1);
         assertEquals("Weekdays", cold.daysLabel());
         assertEquals("If below 35°F", cold.conditionLabel());
-        assertEquals("74°F · defrost · heated · 10 min", cold.actionLabel());
+        assertEquals("74°F · defrost · heated · 10\u00A0min", cold.actionLabel());
         assertEquals("Warm-up", cold.kindLabel());
-        assertEquals("64°F · 10 min", Schedule.hotAfternoon(2).actionLabel());
+        assertEquals("64°F · 10\u00A0min", Schedule.hotAfternoon(2).actionLabel());
         Schedule odd = new Schedule(3, true, 7, 0, Schedule.MONDAY | Schedule.FRIDAY | Schedule.SUNDAY,
                 Schedule.Condition.ALWAYS, 0, new ClimateOptions(70, 5, false, false));
         assertEquals("Mon, Fri, Sun", odd.daysLabel());

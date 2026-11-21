@@ -53,11 +53,11 @@ final class DemoData {
         String alert = "Vehicle Alert · Your vehicle's doors are unlocked";
         settings.addLog("Signed in as demo@example.com");
         settings.addLog("Auto-lock turned on");
-        settings.addLog("Alert (no match): Vehicle Alert · Remote Start was successful");
-        settings.addLog("Alert matched \"unlock\": locking in 2 minutes: " + alert);
+        settings.addLog("Alert ignored (no trigger phrase): \u201CVehicle Alert · Remote Start was successful\u201D");
+        settings.addLog("Unlocked alert, locking in 2 minutes: \u201C" + alert + "\u201D");
         settings.addLog("Auto-lock: Locked");
         if (pending) {
-            settings.addLog("Alert matched \"unlock\": locking in 2 minutes: " + alert);
+            settings.addLog("Unlocked alert, locking in 2 minutes: \u201C" + alert + "\u201D");
             settings.setPending(now + 95_000L, alert);
         } else {
             settings.clearPending();

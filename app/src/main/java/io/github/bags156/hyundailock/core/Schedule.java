@@ -186,7 +186,7 @@ public final class Schedule {
         if (climate.heat) {
             text.append(" · heated");
         }
-        text.append(" · ").append(climate.minutes).append(" min");
+        text.append(" · ").append(climate.minutes).append("\u00A0min");
         return text.toString();
     }
 

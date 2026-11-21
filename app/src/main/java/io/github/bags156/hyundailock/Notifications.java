@@ -10,7 +10,8 @@ import android.content.pm.PackageManager;
 import android.graphics.drawable.Icon;
 import android.os.Build;
 
-import io.github.bags156.hyundailock.core.Delays;
+import java.text.DateFormat;
+import java.util.Date;
 
 /** The countdown before an automatic lock, and command results. */
 final class Notifications {
@@ -57,7 +58,7 @@ final class Notifications {
         return context.getSystemService(NotificationManager.class).areNotificationsEnabled();
     }
 
-    /** "Car unlocked: locking in 2 minutes", with Don't lock and Lock now. */
+    /** "Car unlocked · locking at 4:27 PM" with a live countdown, Don't lock and Lock now. */
     static void countdown(Context context, long dueAt, String alert) {
         if (!canPost(context)) {
             return;
@@ -67,7 +68,8 @@ final class Notifications {
         Notification.Builder builder = new Notification.Builder(context, CHANNEL_AUTOLOCK)
                 .setSmallIcon(R.drawable.ic_stat_lock)
                 .setColor(ACCENT)
-                .setContentTitle("Car unlocked: locking in " + Delays.label(roundUp(remaining)))
+                .setContentTitle("Car unlocked · locking at " + DateFormat.getTimeInstance(DateFormat.SHORT)
+                        .format(new Date(dueAt)))
                 .setContentText(alert == null || alert.isEmpty() ? "From an unlocked alert." : alert)
                 .setStyle(new Notification.BigTextStyle().bigText(
                         (alert == null || alert.isEmpty() ? "" : alert + "\n")
@@ -83,11 +85,6 @@ final class Notifications {
                 .addAction(action(context, "Don't lock", ActionReceiver.ACTION_CANCEL))
                 .addAction(action(context, "Lock now", ActionReceiver.ACTION_LOCK_NOW));
         context.getSystemService(NotificationManager.class).notify(ID_COUNTDOWN, builder.build());
-    }
-
-    /** Rounds up to whole seconds so "1 minute 59.9 s" reads as 2 minutes. */
-    private static long roundUp(long ms) {
-        return ((ms + 999) / 1000) * 1000;
     }
 
     static void result(Context context, String title, String text, boolean offerRetry,

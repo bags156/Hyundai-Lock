@@ -70,9 +70,14 @@ for mode in light dark; do
   if [ "$mode" = dark ]; then
     launch --es demo normal
     sleep 3
-    for i in 1 2; do scroll_down; sleep 1; done
-    tap_text "Weekdays"
+    scroll_down
+    sleep 1
+    tap_text "7:30"
     shoot "$mode-6-schedule-editor" 3
+    adb shell input keyevent KEYCODE_BACK
+    sleep 1
+    tap_text "+ Hot afternoon"
+    shoot "$mode-6b-new-schedule" 3
     adb shell input keyevent KEYCODE_BACK
   fi
 

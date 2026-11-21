@@ -603,7 +603,7 @@ final class CarControl {
     /** Called for every notification posted by a watched app. */
     void onWatchedNotification(String text, String matchedTrigger) {
         if (matchedTrigger == null) {
-            settings.addLog("Alert (no match): " + text);
+            settings.addLog("Alert ignored (no trigger phrase): \u201C" + text + "\u201D");
             changed();
             return;
         }
@@ -618,15 +618,15 @@ final class CarControl {
             in.pendingDueAt = settings.pendingDueAt();
             AutoLockGate.Decision decision = AutoLockGate.decide(in);
             if (decision != AutoLockGate.Decision.SCHEDULE) {
-                settings.addLog("Alert matched \"" + matchedTrigger + "\", not locking ("
-                        + decision.reason + "): " + text);
+                settings.addLog("Unlocked alert, not locking because " + decision.reason
+                        + ": \u201C" + text + "\u201D");
                 changed();
                 return;
             }
             long delay = settings.delayMs();
             long dueAt = in.now + delay;
-            settings.addLog("Alert matched \"" + matchedTrigger + "\": locking in "
-                    + Delays.label(delay) + ": " + text);
+            settings.addLog("Unlocked alert, locking in " + Delays.label(delay) + ": \u201C"
+                    + text + "\u201D");
             schedule(dueAt, text);
         }
     }
