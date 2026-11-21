@@ -20,9 +20,12 @@ final class Notifications {
 
     static final String CHANNEL_AUTOLOCK = "autolock";
     static final String CHANNEL_RESULTS = "results";
+    static final String CHANNEL_SCHEDULES = "schedules";
+    static final String CHANNEL_SCHEDULES_SKIPPED = "schedules_skipped";
 
     static final int ID_COUNTDOWN = 10;
     static final int ID_RESULT = 11;
+    static final int ID_SCHEDULE = 12;
 
     private static final int ACCENT = 0xFF2F6FDE;
 
@@ -34,8 +37,16 @@ final class Notifications {
         NotificationChannel results = new NotificationChannel(CHANNEL_RESULTS, "Lock results",
                 NotificationManager.IMPORTANCE_DEFAULT);
         results.setDescription("Whether automatic and Quick Settings commands worked.");
+        NotificationChannel schedules = new NotificationChannel(CHANNEL_SCHEDULES, "Scheduled starts",
+                NotificationManager.IMPORTANCE_DEFAULT);
+        schedules.setDescription("When a schedule starts the car's climate, or couldn't.");
+        NotificationChannel skipped = new NotificationChannel(CHANNEL_SCHEDULES_SKIPPED,
+                "Skipped schedules", NotificationManager.IMPORTANCE_LOW);
+        skipped.setDescription("When a schedule didn't start the car because of the temperature.");
         nm.createNotificationChannel(countdown);
         nm.createNotificationChannel(results);
+        nm.createNotificationChannel(schedules);
+        nm.createNotificationChannel(skipped);
     }
 
     static boolean canPost(Context context) {
@@ -102,6 +113,26 @@ final class Notifications {
             builder.addAction(action(context, "Lock anyway", ActionReceiver.ACTION_LOCK_ANYWAY));
         }
         context.getSystemService(NotificationManager.class).notify(ID_RESULT, builder.build());
+    }
+
+    /** A schedule's outcome. Skips go to a quiet channel. */
+    static void schedule(Context context, String title, String text, boolean skipped) {
+        if (!canPost(context)) {
+            return;
+        }
+        ensureChannels(context);
+        Notification.Builder builder = new Notification.Builder(context,
+                skipped ? CHANNEL_SCHEDULES_SKIPPED : CHANNEL_SCHEDULES)
+                .setSmallIcon(R.drawable.ic_stat_lock)
+                .setColor(ACCENT)
+                .setContentTitle(title)
+                .setAutoCancel(true)
+                .setCategory(Notification.CATEGORY_STATUS)
+                .setContentIntent(openApp(context));
+        if (text != null && !text.isEmpty()) {
+            builder.setContentText(text).setStyle(new Notification.BigTextStyle().bigText(text));
+        }
+        context.getSystemService(NotificationManager.class).notify(ID_SCHEDULE, builder.build());
     }
 
     static void cancel(Context context, int id) {

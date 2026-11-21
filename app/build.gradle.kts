@@ -57,6 +57,8 @@ android {
         abortOnError = true
         warningsAsErrors = false
         checkReleaseBuilds = false
+        textReport = true
+        textOutput = file("build/reports/lint-results.txt")
     }
 }
 

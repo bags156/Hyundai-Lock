@@ -36,12 +36,49 @@ public final class Vehicle {
         return "E".equalsIgnoreCase(evStatus);
     }
 
+    /** "2022 Tucson": Hyundai sends names in capitals, which read as shouting on screen. */
     public String displayName() {
         if (!nickname.trim().isEmpty()) {
-            return nickname.trim();
+            return softenCapitals(nickname.trim());
         }
         String tail = vin.length() > 6 ? vin.substring(vin.length() - 6) : vin;
-        return (model.isEmpty() ? "Hyundai" : model) + " …" + tail;
+        return (model.isEmpty() ? "Hyundai" : softenCapitals(model)) + " …" + tail;
+    }
+
+    /** Trim and drivetrain names that stay in capitals. */
+    private static final java.util.Set<String> ACRONYMS = new java.util.HashSet<>(java.util.Arrays.asList(
+            "EV", "HEV", "PHEV", "N", "GT", "SE", "SEL", "XRT", "AWD", "FWD", "HTRAC", "US"));
+
+    /**
+     * When a name is written entirely in capitals ("2022 SANTA FE"), title-cases each word except
+     * trim acronyms such as EV or N. Names with any lower-case letters are left alone.
+     */
+    public static String softenCapitals(String text) {
+        boolean hasLetter = false;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (Character.isLetter(c)) {
+                hasLetter = true;
+                if (!Character.isUpperCase(c)) {
+                    return text;
+                }
+            }
+        }
+        if (!hasLetter) {
+            return text;
+        }
+        StringBuilder out = new StringBuilder(text.length());
+        for (String word : text.split(" ", -1)) {
+            if (out.length() > 0) {
+                out.append(' ');
+            }
+            if (word.isEmpty() || ACRONYMS.contains(word) || !Character.isLetter(word.charAt(0))) {
+                out.append(word);
+            } else {
+                out.append(word.charAt(0)).append(word.substring(1).toLowerCase(java.util.Locale.ROOT));
+            }
+        }
+        return out.toString();
     }
 
     /** Reads GET enrollment/details/{user}. Cancelled enrollments are left out. */

@@ -92,6 +92,33 @@ public final class VehicleStatus {
         return "Open: " + joined;
     }
 
+    /** One line for under the lock state: "Engine off · Climate off · All closed". */
+    public String summaryLine() {
+        List<String> parts = new ArrayList<>();
+        if (engineOn != null) {
+            parts.add(engineOn ? "Engine running" : "Engine off");
+        }
+        if (climateOn != null) {
+            parts.add(climateOn ? "Climate on" : "Climate off");
+        }
+        List<String> open = new ArrayList<>();
+        if (Boolean.TRUE.equals(anyDoorOpen)) {
+            open.add("Door");
+        }
+        if (Boolean.TRUE.equals(trunkOpen)) {
+            open.add(open.isEmpty() ? "Trunk" : "trunk");
+        }
+        if (Boolean.TRUE.equals(hoodOpen)) {
+            open.add(open.isEmpty() ? "Hood" : "hood");
+        }
+        if (!open.isEmpty()) {
+            parts.add(String.join(", ", open) + " open");
+        } else if (anyDoorOpen != null || trunkOpen != null || hoodOpen != null) {
+            parts.add("All closed");
+        }
+        return String.join(" · ", parts);
+    }
+
     public static String onOff(Boolean value) {
         if (value == null) {
             return "unknown";

@@ -3,10 +3,15 @@ package io.github.bags156.hyundailock;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import io.github.bags156.hyundailock.core.ClimateOptions;
 import io.github.bags156.hyundailock.core.Delays;
 import io.github.bags156.hyundailock.core.EventLog;
 import io.github.bags156.hyundailock.core.KeywordRules;
+import io.github.bags156.hyundailock.core.Schedule;
+import io.github.bags156.hyundailock.core.Weather;
 import io.github.bags156.hyundailock.core.Vehicle;
 import io.github.bags156.hyundailock.core.VehicleStatus;
 
@@ -41,6 +46,12 @@ final class AppSettings {
     private static final String PENDING_ALERT = "pending_alert";
 
     private static final String LOG = "log";
+
+    private static final String SCHEDULES = "schedules";
+    private static final String NEXT_SCHEDULE_ID = "next_schedule_id";
+    private static final String WEATHER_PLACE = "weather_place";
+    private static final String WEATHER_TEMP = "weather_temp";
+    private static final String WEATHER_AT = "weather_at";
 
     private final SharedPreferences prefs;
 
@@ -234,6 +245,77 @@ final class AppSettings {
 
     void clearPending() {
         prefs.edit().remove(PENDING_DUE_AT).remove(PENDING_ALERT).commit();
+    }
+
+    // ---- schedules ----
+
+    List<Schedule> schedules() {
+        return Schedule.sorted(Schedule.parseList(prefs.getString(SCHEDULES, null)));
+    }
+
+    Schedule schedule(long id) {
+        for (Schedule schedule : schedules()) {
+            if (schedule.id == id) {
+                return schedule;
+            }
+        }
+        return null;
+    }
+
+    /** Adds the schedule, or replaces the one with the same id. */
+    synchronized void putSchedule(Schedule schedule) {
+        List<Schedule> list = new ArrayList<>();
+        for (Schedule existing : schedules()) {
+            if (existing.id != schedule.id) {
+                list.add(existing);
+            }
+        }
+        list.add(schedule);
+        prefs.edit().putString(SCHEDULES, Schedule.toJson(list)).commit();
+    }
+
+    synchronized void removeSchedule(long id) {
+        List<Schedule> list = new ArrayList<>();
+        for (Schedule existing : schedules()) {
+            if (existing.id != id) {
+                list.add(existing);
+            }
+        }
+        prefs.edit().putString(SCHEDULES, Schedule.toJson(list)).commit();
+    }
+
+    synchronized long newScheduleId() {
+        long id = prefs.getLong(NEXT_SCHEDULE_ID, 1L);
+        prefs.edit().putLong(NEXT_SCHEDULE_ID, id + 1).commit();
+        return id;
+    }
+
+    Weather.Place weatherPlace() {
+        return Weather.Place.fromJson(prefs.getString(WEATHER_PLACE, null));
+    }
+
+    void setWeatherPlace(Weather.Place place) {
+        prefs.edit()
+                .putString(WEATHER_PLACE, place == null ? null : place.toJson())
+                .remove(WEATHER_TEMP)
+                .remove(WEATHER_AT)
+                .apply();
+    }
+
+    /** Last outside temperature fetched, or null. */
+    Double weatherTemp() {
+        if (!prefs.contains(WEATHER_TEMP)) {
+            return null;
+        }
+        return (double) prefs.getFloat(WEATHER_TEMP, 0f);
+    }
+
+    long weatherAt() {
+        return prefs.getLong(WEATHER_AT, 0L);
+    }
+
+    void saveWeather(double tempF, long at) {
+        prefs.edit().putFloat(WEATHER_TEMP, (float) tempF).putLong(WEATHER_AT, at).apply();
     }
 
     // ---- activity log ----

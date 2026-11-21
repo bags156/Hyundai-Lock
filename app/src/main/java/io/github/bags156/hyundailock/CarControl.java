@@ -23,6 +23,9 @@ import java.util.function.Consumer;
 
 import io.github.bags156.hyundailock.core.ActionState;
 import io.github.bags156.hyundailock.core.AutoLockGate;
+import io.github.bags156.hyundailock.core.ClimateOptions;
+import io.github.bags156.hyundailock.core.Schedule;
+import io.github.bags156.hyundailock.core.Weather;
 import io.github.bags156.hyundailock.core.Delays;
 import io.github.bags156.hyundailock.core.Vehicle;
 import io.github.bags156.hyundailock.core.VehicleStatus;
@@ -51,9 +54,14 @@ final class CarControl {
         }
     }
 
-    /** Where a command came from. Anything but APP reports its result as a notification. */
+    /**
+     * Where a command came from. APP and SILENT report on screen; the rest as notifications.
+     * SILENT is the automatic refresh when the screen opens: it only speaks up on errors.
+     */
     enum Source {
         APP,
+        SILENT,
+        SCHEDULE,
         TILE,
         NOTIFICATION,
         AUTO
@@ -82,6 +90,8 @@ final class CarControl {
     private final AppSettings settings;
     private final BluelinkClient client = new BluelinkClient();
     private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor();
+    /** Weather lookups shouldn't wait behind a car command that's waiting for the car. */
+    private final java.util.concurrent.ExecutorService weatherWorker = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
     private final List<Listener> listeners = new CopyOnWriteArrayList<>();
     private final PowerManager.WakeLock pendingWake;
@@ -92,6 +102,8 @@ final class CarControl {
     private ScheduledFuture<?> pendingLock; // guarded by this
     private volatile String busy;
     private volatile String message;
+    private volatile boolean messageIsError;
+    private volatile long messageAt;
 
     private CarControl(Context app) {
         this.app = app;
@@ -125,6 +137,25 @@ final class CarControl {
         return message;
     }
 
+    boolean messageIsError() {
+        return messageIsError;
+    }
+
+    /** When {@link #message()} was set, so the screen can let old confirmations fade. */
+    long messageAt() {
+        return messageAt;
+    }
+
+    private void say(String text, boolean error) {
+        message = text;
+        messageIsError = error;
+        messageAt = System.currentTimeMillis();
+    }
+
+    private boolean onScreen(Source source) {
+        return source == Source.APP || source == Source.SILENT;
+    }
+
     private void changed() {
         main.post(() -> {
             for (Listener listener : listeners) {
@@ -143,7 +174,7 @@ final class CarControl {
     void signIn(String email, String password, String pin, Consumer<List<Vehicle>> onVehicles) {
         worker.execute(() -> {
             busy = "Signing in…";
-            message = null;
+            say(null, false);
             changed();
             try {
                 BluelinkClient.Credentials credentials =
@@ -154,15 +185,16 @@ final class CarControl {
                 if (vehicles.size() == 1) {
                     settings.setVehicle(vehicles.get(0));
                 }
+                Scheduler.rescheduleAll(app);
                 settings.addLog("Signed in as " + credentials.email);
-                message = vehicles.size() == 1
+                say(vehicles.size() == 1
                         ? "Signed in. Using " + vehicles.get(0).displayName() + "."
-                        : "Signed in. Choose which car to control.";
+                        : "Signed in. Choose which car to control.", false);
                 main.post(() -> onVehicles.accept(vehicles));
             } catch (GeneralSecurityException e) {
-                message = "Couldn't store your login securely on this phone: " + e.getMessage();
+                say("Couldn't store your login securely on this phone: " + e.getMessage(), true);
             } catch (Exception e) {
-                message = describe(e);
+                say(describe(e), true);
             } finally {
                 busy = null;
                 changed();
@@ -179,7 +211,7 @@ final class CarControl {
                 List<Vehicle> vehicles = client.signIn(credentials());
                 main.post(() -> onVehicles.accept(vehicles));
             } catch (Exception e) {
-                message = describe(e);
+                say(describe(e), true);
             } finally {
                 busy = null;
                 changed();
@@ -189,17 +221,20 @@ final class CarControl {
 
     void chooseVehicle(Vehicle vehicle) {
         settings.setVehicle(vehicle);
-        message = "Using " + vehicle.displayName() + ".";
+        Scheduler.rescheduleAll(app);
+        say("Using " + vehicle.displayName() + ".", false);
         changed();
+        run(Command.REFRESH, Source.SILENT);
     }
 
     void signOut() {
         cancelPendingLock(null);
         client.forget();
         settings.clearAccount();
+        Scheduler.rescheduleAll(app); // Signed out: cancels every schedule's alarm.
         Secrets.destroy();
         settings.addLog("Signed out");
-        message = "Signed out. Your login was removed from this phone.";
+        say("Signed out. Your login was removed from this phone.", false);
         changed();
     }
 
@@ -229,17 +264,48 @@ final class CarControl {
 
     // ---- commands ----
 
-    void run(Command command, Source source) {
-        if (source != Source.APP) {
-            commandWake.acquire(COMMAND_WAKE_MS);
+    /** One command to carry out, with what's needed to report it. */
+    private static final class Job {
+        final Command command;
+        final Source source;
+        final int attempt;
+        /** For CLIMATE_START: settings to use instead of the screen's. */
+        final ClimateOptions climate;
+        /** For SCHEDULE: the schedule's name and why it ran ("28°F outside"). */
+        final String title;
+        final String reason;
+
+        Job(Command command, Source source, int attempt, ClimateOptions climate, String title,
+                String reason) {
+            this.command = command;
+            this.source = source;
+            this.attempt = attempt;
+            this.climate = climate;
+            this.title = title;
+            this.reason = reason;
         }
-        worker.execute(() -> execute(command, source, 0));
+
+        Job(Command command, Source source) {
+            this(command, source, 0, null, null, null);
+        }
+
+        Job retry() {
+            return new Job(command, source, attempt + 1, climate, title, reason);
+        }
     }
 
-    private void execute(Command command, Source source, int attempt) {
+    void run(Command command, Source source) {
+        if (!onScreen(source)) {
+            commandWake.acquire(COMMAND_WAKE_MS);
+        }
+        worker.execute(() -> execute(new Job(command, source)));
+    }
+
+    private void execute(Job job) {
+        Command command = job.command;
         busy = progressLabel(command);
-        if (source == Source.APP) {
-            message = null;
+        if (job.source == Source.APP) {
+            say(null, false);
         }
         changed();
         try {
@@ -252,7 +318,7 @@ final class CarControl {
                     VehicleStatus status = client.status(credentials, vehicle,
                             command == Command.WAKE_REFRESH);
                     settings.saveStatus(status, System.currentTimeMillis());
-                    succeed(command, source, command.done);
+                    succeed(job, command.done);
                     return;
                 case LOCK:
                     transactionId = client.lock(credentials, vehicle, true);
@@ -264,7 +330,8 @@ final class CarControl {
                     transactionId = client.lock(credentials, vehicle, false);
                     break;
                 case CLIMATE_START:
-                    transactionId = client.startClimate(credentials, vehicle, settings.climate());
+                    transactionId = client.startClimate(credentials, vehicle,
+                            job.climate != null ? job.climate : settings.climate());
                     break;
                 case CLIMATE_STOP:
                     transactionId = client.stopClimate(credentials, vehicle);
@@ -272,26 +339,27 @@ final class CarControl {
                 default:
                     throw new IllegalStateException(command.name());
             }
-            confirm(credentials, vehicle, command, source, attempt, transactionId);
+            confirm(credentials, vehicle, job, transactionId);
         } catch (Exception e) {
-            failed(command, source, attempt, describe(e));
+            failed(job, describe(e));
         } finally {
             busy = null;
             changed();
-            if (source != Source.APP && commandWake.isHeld()) {
+            if (!onScreen(job.source) && commandWake.isHeld()) {
                 commandWake.release();
             }
-            if (attempt > 0 && retryWake.isHeld()) {
+            if (job.attempt > 0 && retryWake.isHeld()) {
                 retryWake.release();
             }
         }
     }
 
     /** Waits for the car to report that it carried out the command. */
-    private void confirm(BluelinkClient.Credentials credentials, Vehicle vehicle, Command command,
-            Source source, int attempt, String transactionId) throws Exception {
+    private void confirm(BluelinkClient.Credentials credentials, Vehicle vehicle, Job job,
+            String transactionId) throws Exception {
+        Command command = job.command;
         if (transactionId == null) {
-            succeed(command, source, command.done + " (sent; Hyundai gave no way to confirm it)");
+            succeed(job, command.done + " (sent; Hyundai gave no way to confirm it)");
             return;
         }
         busy = "Waiting for the car…";
@@ -302,17 +370,17 @@ final class CarControl {
             ActionState state = client.actionState(credentials, vehicle, transactionId);
             if (state == ActionState.SUCCESS) {
                 rememberLockState(command);
-                succeed(command, source, command.done);
+                succeed(job, command.done);
                 return;
             }
             if (state == ActionState.FAILED) {
-                failed(command, source, attempt, "The car reported that "
-                        + command.label.toLowerCase(Locale.ROOT)
-                        + " didn't work.");
+                failed(job, "The car reported that " + command.label.toLowerCase(Locale.ROOT)
+                        + " didn't work." + (command == Command.CLIMATE_START
+                                ? " Remote start needs the car off and locked, with the hood closed." : ""));
                 return;
             }
         }
-        succeed(command, source, "Sent, but the car hasn't confirmed yet. Refresh in a minute to check.");
+        succeed(job, "Sent, but the car hasn't confirmed yet. Refresh in a minute to check.");
     }
 
     private void rememberLockState(Command command) {
@@ -325,14 +393,26 @@ final class CarControl {
         }
     }
 
-    private void succeed(Command command, Source source, String text) {
-        String stamped = text + " · " + time(System.currentTimeMillis());
-        settings.setLastResult(stamped);
-        if (command != Command.REFRESH && command != Command.WAKE_REFRESH) {
-            settings.addLog(sourceLabel(source) + text);
+    private void succeed(Job job, String text) {
+        Command command = job.command;
+        Source source = job.source;
+        boolean refresh = command == Command.REFRESH || command == Command.WAKE_REFRESH;
+        if (!refresh) {
+            // Shown as the Quick Settings tile's subtitle.
+            settings.setLastResult(text + " · " + time(System.currentTimeMillis()));
+            settings.addLog(sourceLabel(job) + text);
         }
-        if (source == Source.APP) {
-            message = text;
+        if (onScreen(source)) {
+            // A refresh speaks through the updated status and timestamp, not a message.
+            if (!refresh) {
+                say(text, false);
+            }
+        } else if (source == Source.SCHEDULE) {
+            Notifications.schedule(app, job.title + ": climate started",
+                    (job.reason == null ? "" : capitalize(job.reason) + ". ")
+                            + (job.climate == null ? "" : "Set to " + job.climate.tempF + "°F for "
+                                    + job.climate.minutes + " min.")
+                            + (text.equals(command.done) ? "" : " " + text), false);
         } else if (command == Command.LOCK) {
             Notifications.result(app, source == Source.AUTO ? "Car locked automatically" : "Car locked",
                     text.equals(command.done) ? "Confirmed by the car." : text, false, false);
@@ -341,22 +421,126 @@ final class CarControl {
         }
     }
 
-    private void failed(Command command, Source source, int attempt, String reason) {
-        settings.setLastResult(command.label + " failed · " + time(System.currentTimeMillis()));
-        settings.addLog(sourceLabel(source) + command.label + " failed: " + reason);
-        if (source == Source.APP) {
-            message = command.label + " failed: " + reason;
+    private void failed(Job job, String reason) {
+        Command command = job.command;
+        Source source = job.source;
+        if (command != Command.REFRESH && command != Command.WAKE_REFRESH) {
+            settings.setLastResult(command.label + " failed · " + time(System.currentTimeMillis()));
+        }
+        settings.addLog(sourceLabel(job) + command.label + " failed: " + reason);
+        if (onScreen(source)) {
+            say(command.label + " failed: " + reason, true);
             return;
         }
-        if (source == Source.AUTO && command == Command.LOCK && attempt == 0) {
+        if (source == Source.SCHEDULE) {
+            Notifications.schedule(app, job.title + ": couldn't start climate", reason, false);
+            return;
+        }
+        if (source == Source.AUTO && command == Command.LOCK && job.attempt == 0) {
             Notifications.result(app, "Couldn't lock yet, trying again in 30 seconds", reason, false, false);
             retryWake.acquire(COMMAND_WAKE_MS + AUTO_RETRY_DELAY_MS);
-            worker.schedule(() -> execute(Command.LOCK, Source.AUTO, 1), AUTO_RETRY_DELAY_MS,
-                    TimeUnit.MILLISECONDS);
+            worker.schedule(() -> execute(job.retry()), AUTO_RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
             return;
         }
         Notifications.result(app, "Couldn't " + command.label.toLowerCase(Locale.ROOT) + " the car", reason,
                 command == Command.LOCK, false);
+    }
+
+    private static String capitalize(String text) {
+        return text.isEmpty() ? text : Character.toUpperCase(text.charAt(0)) + text.substring(1);
+    }
+
+    // ---- schedules and weather ----
+
+    /** Called by a schedule's alarm. Re-arms the next start first, then checks and runs. */
+    void runSchedule(long id) {
+        commandWake.acquire(COMMAND_WAKE_MS);
+        worker.execute(() -> {
+            boolean handedOff = false;
+            try {
+                Scheduler.rescheduleAll(app);
+                Schedule schedule = settings.schedule(id);
+                if (schedule == null || !schedule.enabled || !settings.ready()) {
+                    return;
+                }
+                String title = schedule.kindLabel() + " at " + clock(schedule.hour, schedule.minute);
+                Double outside = null;
+                if (schedule.needsWeather()) {
+                    Weather.Place place = settings.weatherPlace();
+                    if (place == null) {
+                        skipSchedule(title, "no weather location is set");
+                        return;
+                    }
+                    try {
+                        outside = WeatherClient.currentTemp(place);
+                        settings.saveWeather(outside, System.currentTimeMillis());
+                    } catch (Exception e) {
+                        settings.addLog("Schedule: weather check failed (" + describe(e) + ")");
+                    }
+                }
+                Schedule.Check check = schedule.check(outside);
+                if (!check.run) {
+                    skipSchedule(title, check.reason);
+                    return;
+                }
+                settings.addLog("Schedule: " + title + " starting, " + check.reason);
+                handedOff = true;
+                execute(new Job(Command.CLIMATE_START, Source.SCHEDULE, 0, schedule.climate, title,
+                        check.reason));
+            } finally {
+                if (!handedOff && commandWake.isHeld()) {
+                    commandWake.release();
+                }
+                changed();
+            }
+        });
+    }
+
+    private void skipSchedule(String title, String reason) {
+        settings.addLog("Schedule: " + title + " skipped, " + reason);
+        Notifications.schedule(app, title + ": skipped", capitalize(reason) + ".", true);
+    }
+
+    private String clock(int hour, int minute) {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.set(java.util.Calendar.HOUR_OF_DAY, hour);
+        c.set(java.util.Calendar.MINUTE, minute);
+        return android.text.format.DateFormat.getTimeFormat(app).format(c.getTime());
+    }
+
+    /** Updates the outside temperature shown on screen if it's more than 15 minutes old. */
+    void refreshWeatherIfStale() {
+        Weather.Place place = settings.weatherPlace();
+        if (place == null || System.currentTimeMillis() - settings.weatherAt() < 15 * 60_000L) {
+            return;
+        }
+        weatherWorker.execute(() -> {
+            try {
+                settings.saveWeather(WeatherClient.currentTemp(place), System.currentTimeMillis());
+            } catch (Exception e) {
+                // Shown as missing; the schedule run reports its own weather problems.
+            }
+            changed();
+        });
+    }
+
+    void searchPlaces(String query, Consumer<List<Weather.Place>> onResult, Consumer<String> onError) {
+        weatherWorker.execute(() -> {
+            try {
+                List<Weather.Place> places = WeatherClient.search(query);
+                main.post(() -> onResult.accept(places));
+            } catch (Exception e) {
+                String message = describe(e);
+                main.post(() -> onError.accept(message));
+            }
+        });
+    }
+
+    void setWeatherPlace(Weather.Place place) {
+        settings.setWeatherPlace(place);
+        settings.addLog("Weather location set to " + place.label());
+        refreshWeatherIfStale();
+        changed();
     }
 
     private static String progressLabel(Command command) {
@@ -378,8 +562,10 @@ final class CarControl {
         }
     }
 
-    private static String sourceLabel(Source source) {
-        switch (source) {
+    private static String sourceLabel(Job job) {
+        switch (job.source) {
+            case SCHEDULE:
+                return "Schedule: " + (job.title == null ? "" : job.title + " ");
             case AUTO:
                 return "Auto-lock: ";
             case TILE:
@@ -493,7 +679,7 @@ final class CarControl {
                 return;
             }
             commandWake.acquire(COMMAND_WAKE_MS);
-            execute(Command.LOCK, Source.AUTO, 0);
+            execute(new Job(Command.LOCK, Source.AUTO));
         } finally {
             if (pendingWake.isHeld()) {
                 pendingWake.release();

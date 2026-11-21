@@ -53,6 +53,29 @@ public class SmallPartsTest {
         assertEquals(ClimateOptions.MAX_MINUTES, high.minutes);
     }
 
+    @Test
+    public void namesLoseShoutingCapitals() {
+        assertEquals("2022 Tucson", Vehicle.softenCapitals("2022 TUCSON"));
+        assertEquals("Santa Fe", Vehicle.softenCapitals("SANTA FE"));
+        assertEquals("Ioniq 5 N", Vehicle.softenCapitals("IONIQ 5 N"));
+        assertEquals("My Car", Vehicle.softenCapitals("My Car"));
+        assertEquals("Will's EV", Vehicle.softenCapitals("Will's EV"));
+        assertEquals("Tucson HEV", Vehicle.softenCapitals("TUCSON HEV"));
+        assertEquals("2024", Vehicle.softenCapitals("2024"));
+        assertEquals("2022 Tucson", new Vehicle("R", "VIN", "2022 TUCSON", "3", "N", "TUCSON").displayName());
+    }
+
+    @Test
+    public void relativeTimes() {
+        long now = 10_000_000_000L;
+        assertEquals("just now", TimeText.ago(now, now - 59_000));
+        assertEquals("just now", TimeText.ago(now, now + 5_000));
+        assertEquals("1 min ago", TimeText.ago(now, now - 60_000));
+        assertEquals("59 min ago", TimeText.ago(now, now - 59 * 60_000));
+        assertEquals("2 h ago", TimeText.ago(now, now - 2 * 3_600_000));
+        assertEquals("3 d ago", TimeText.ago(now, now - 3 * 86_400_000L));
+    }
+
     private static String repeat(char c, int n) {
         StringBuilder b = new StringBuilder();
         for (int i = 0; i < n; i++) {

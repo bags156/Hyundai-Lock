@@ -34,7 +34,7 @@ public class ParsingTest {
         Vehicle ioniq = vehicles.get(1);
         assertTrue(ioniq.isEv());
         assertEquals("2", ioniq.generation);
-        assertEquals("IONIQ 5 …000002", ioniq.displayName());
+        assertEquals("Ioniq 5 …000002", ioniq.displayName());
     }
 
     @Test(expected = JSONException.class)
@@ -66,6 +66,7 @@ public class ParsingTest {
         assertEquals(Boolean.TRUE, status.climateOn);
         assertEquals(Boolean.TRUE, status.anyDoorOpen);
         assertEquals("Open: a door", status.openLabel());
+        assertEquals("Engine running · Climate on · Door open", status.summaryLine());
         assertEquals(Long.valueOf(1_795_273_402_000L), status.reportedAtMillis());
 
         VehicleStatus copy = VehicleStatus.fromJson(status.toJson());
@@ -84,6 +85,11 @@ public class ParsingTest {
         assertEquals("Unknown", status.lockLabel());
         assertEquals("unknown", VehicleStatus.onOff(status.engineOn));
         assertEquals("Nothing reported open", status.openLabel());
+        assertEquals("", status.summaryLine());
+        VehicleStatus closed = new VehicleStatus(true, false, false, false, false, false, null);
+        assertEquals("Engine off · Climate off · All closed", closed.summaryLine());
+        VehicleStatus trunk = new VehicleStatus(true, false, null, false, true, true, null);
+        assertEquals("Engine off · Trunk, hood open", trunk.summaryLine());
         assertNull(status.reportedAtMillis());
     }
 

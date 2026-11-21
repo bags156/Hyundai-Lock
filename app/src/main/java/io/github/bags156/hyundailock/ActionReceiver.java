@@ -5,7 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 
-/** Notification buttons and the backup alarm. Not exported: only this app can send these. */
+/** Notification buttons and alarms. Not exported: only this app can send these. */
 public final class ActionReceiver extends BroadcastReceiver {
 
     static final String ACTION_CANCEL = "io.github.bags156.hyundailock.CANCEL_LOCK";
@@ -13,6 +13,7 @@ public final class ActionReceiver extends BroadcastReceiver {
     static final String ACTION_LOCK_ANYWAY = "io.github.bags156.hyundailock.LOCK_ANYWAY";
     static final String ACTION_RETRY_LOCK = "io.github.bags156.hyundailock.RETRY_LOCK";
     static final String ACTION_OVERDUE_CHECK = "io.github.bags156.hyundailock.OVERDUE_CHECK";
+    static final String ACTION_RUN_SCHEDULE = "io.github.bags156.hyundailock.RUN_SCHEDULE";
 
     static PendingIntent pending(Context context, String action) {
         Intent intent = new Intent(context, ActionReceiver.class).setAction(action);
@@ -45,6 +46,12 @@ public final class ActionReceiver extends BroadcastReceiver {
                 break;
             case ACTION_OVERDUE_CHECK:
                 car.resumeOverdue();
+                break;
+            case ACTION_RUN_SCHEDULE:
+                long id = Scheduler.idFrom(intent);
+                if (id >= 0) {
+                    car.runSchedule(id);
+                }
                 break;
             default:
         }
